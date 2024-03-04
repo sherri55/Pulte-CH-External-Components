@@ -1,0 +1,170 @@
+import { useState, useEffect } from 'react';
+import axios from "axios";
+import {
+  Button,
+  Stack,
+  TextField,
+  Typography,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Paper,
+  SelectChangeEvent
+} from "@mui/material";
+import PictureParkViewer from '../PictureParkViewer/PictureParkViewer';
+import { Context } from "../types";
+
+const CreateCommunityForm = (context: Context) => {
+
+  interface Market {
+    id: number;
+    name: string;
+    number: string;
+  }
+
+  interface SalesCommunity {
+    id: number;
+    name: string;
+    number: string;
+  }
+  const [marketItems, setMarketItems] = useState<Market[]>([]);
+  const [salesCommunityItems, setSalesCommunityItems] = useState<SalesCommunity[]>([]);
+  const [selectedMarketId, setSelectedMarketId] = useState('');
+
+  const [componentData, setComponentData] = useState({
+    Name: '',
+    Address: '',
+    City: '',
+    Zip: '',
+    Coordinates:'',
+    CRM_Market_ID:'',
+    CRM_Community_ID: '',
+  });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await axios.get("https://pultepoc.azurewebsites.net/api/CRMMarkets");
+        setMarketItems(response.data.value);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    const fetchSecondMenuData = async () => {
+      if (!selectedMarketId) return;
+      try {
+        const response = await axios.get(`https://pultepoc.azurewebsites.net/api/CRMCommunities?marketId=${selectedMarketId}`);
+        setSalesCommunityItems(response.data.value);
+        setComponentData(prevData => ({
+          ...prevData,
+          CRM_Market_ID: selectedMarketId,
+        }));
+      } catch (error) {
+        console.error('Error fetching second menu data:', error);
+      }
+    };
+
+    fetchSecondMenuData();
+  }, [selectedMarketId]);
+
+  const handleMarketChange = (event : SelectChangeEvent) => {
+    setSelectedMarketId(event.target.value);
+    setComponentData(prevData => ({
+      ...prevData,
+      CRM_Market_ID: event.target.value,
+    }));
+  };
+
+  const handleInputChange = (event : React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target;
+    setComponentData(prevData => ({
+        ...prevData,
+        [name]: value,
+    }));
+  };
+
+  const handleCommunityChange = (event : SelectChangeEvent) => {
+    setComponentData(prevData => ({
+      ...prevData,
+      CRM_Community_ID: event.target.value,
+    }));
+  };
+
+  const handleCreateCommunity = async () => {
+    const imageLabels = document.querySelectorAll('.image-src');
+    const imageList = Array.from(imageLabels).map(label => label.getAttribute('image-src'));
+    const imageListText = imageList.join('\n');
+
+    const updatedComponentData = {
+      ...componentData,
+      ImageList: imageListText
+    };
+
+    const queryParams = new URLSearchParams(updatedComponentData).toString();
+    const apiEndpoint = 'https://pultepoc.azurewebsites.net/api/CreateCommunity';
+
+    try {
+      const firstResponse = await axios.get(`${apiEndpoint}?${queryParams}`);
+      console.log('API response:', firstResponse.data);
+
+      const communityId = firstResponse.data;
+
+      const secondApiEndpoint = 'https://pultepoc.azurewebsites.net/api/CreateCRMCommunity';
+      const secondQueryParams = new URLSearchParams({
+        name: updatedComponentData.Name,
+        id: communityId
+      }).toString();
+
+      const secondResponse = await axios.get(`${secondApiEndpoint}?${secondQueryParams}`);
+      console.log('Second API response:', secondResponse.data);
+      if(secondResponse.data != undefined){
+        if(secondResponse.data.id != undefined){
+          alert("Community Successfully Created in CRM with ID:"+ secondResponse.data.id);
+        }
+      }
+    } catch (error) {
+      console.error('API call error:', error);
+    }
+};
+
+
+  return (
+    <Paper>
+      <Stack sx={{ p: 3, maxWidth: 800 }}>
+        <Typography variant="h4" fontSize={24}>New Community</Typography>
+        <TextField type="text" label="Community Name" name="Name" value={componentData.Name} onChange={handleInputChange} color="primary" size="small" sx={{ my: 4 }} />
+        <TextField type="text" label="Address" name="Address" value={componentData.Address} onChange={handleInputChange} color="primary" size="small" sx={{ my: 4 }} />
+        <TextField type="text" label="City" name="City" value={componentData.City} onChange={handleInputChange} color="primary" size="small" sx={{ my: 4 }} />
+        <TextField type="text" label="Zip" name="Zip" value={componentData.Zip} onChange={handleInputChange} color="primary" size="small" sx={{ my: 4 }} />
+        <TextField type="text" label="Co-Ordinates" name="Coordinates" value={componentData.Coordinates} onChange={handleInputChange} color="primary" size="small" sx={{ my: 4 }} />
+        <label>Community Images</label>
+        <PictureParkViewer pictureParkUrl={context.config.pictureParkUrl} />
+        <FormControl fullWidth sx={{ my: 4 }}>
+          <InputLabel>Select CRM Market</InputLabel>
+          <Select value={componentData.CRM_Market_ID} onChange={handleMarketChange} label="Select Market">
+            {marketItems.map((item) => (
+              <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl fullWidth sx={{ my: 4 }}>
+          <InputLabel>Select CRM Community</InputLabel>
+          <Select value={componentData.CRM_Community_ID} onChange={handleCommunityChange} label="Select Community">
+            {salesCommunityItems.map((item) => (
+              <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <Button variant="contained" onClick={handleCreateCommunity}>Create Community</Button>
+      </Stack>
+    </Paper>
+  );
+};
+
+export default CreateCommunityForm;

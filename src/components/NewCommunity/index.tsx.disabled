@@ -1,0 +1,21 @@
+import ReactDOM from "react-dom";
+import {ThemeProvider } from "@mui/material";
+import CreateCommunityForm from "./CreateCommunityForm";
+
+import { Context } from "../types";
+
+export default function CreateExternalRoot(container: HTMLElement) {
+  return {
+    render(context: Context) {
+      ReactDOM.render(
+        <ThemeProvider theme={context.theme}>
+          <CreateCommunityForm theme={context.theme} pictureParkUrl= {context.config.pictureParkUrl} />
+        </ThemeProvider>,
+        container
+      );
+    },
+    unmount() {
+      ReactDOM.unmountComponentAtNode(container);
+    },
+  };
+}
